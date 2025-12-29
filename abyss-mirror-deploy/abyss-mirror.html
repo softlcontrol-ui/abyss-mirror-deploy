@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>深淵の鏡 - Abyss Mirror</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #020205;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      font-family: 'Noto Serif JP', 'Cinzel', serif;
+    }
+    
+    /* A: 背景 - 神聖な森/神社 (torii image) */
+    #bg-image {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      background-image: url('torii-bg.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    
+    /* UI Layer */
+    #ui-layer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #ui-layer > * {
+      pointer-events: auto;
+    }
+    
+    /* Screen transitions */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+      padding: 20px;
+    }
+    
+    .screen.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    /* Start screen - empty, just water */
+    #start-screen {
+      pointer-events: none;
+    }
+    
+    /* Transition overlay for mystical effect */
+    .transition-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at center, transparent 0%, rgba(5, 10, 30, 0.4) 100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 2s ease;
+      z-index: 5;
+    }
+    
+    .transition-overlay.active {
+      opacity: 1;
+    }
+    
+    /* B, C, E: テーブル - 透明な枠 (Glass panel) */
+    .glass-panel {
+      background: rgba(5, 10, 30, 0.5);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(192, 216, 255, 0.2);
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(192, 216, 255, 0.1);
+    }
+    
+    /* Input screen - positioned at bottom */
+    #input-screen {
+      justify-content: flex-end;
+      padding-bottom: 40px;
+      gap: 16px;
+    }
+    
+    .input-container {
+      width: 100%;
+      max-width: 500px;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 1.2s ease, transform 1.2s ease;
+      pointer-events: none;
+    }
+    
+    .input-container.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    
+    /* Box B - Theme input container */
+    #theme-container {
+      transition-delay: 0s;
+    }
+    
+    /* Box C - Vision input container */
+    #vision-container {
+      position: relative;
+    }
+    
+    .input-label {
+      color: rgba(255, 220, 180, 0.85);
+      font-size: 12px;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      display: block;
+    }
+    
+    /* ①② ヴィジョンの入力枠 */
+    .vision-input {
+      width: 100%;
+      background: rgba(2, 2, 15, 0.7);
+      border: 1px solid rgba(192, 216, 255, 0.25);
+      border-radius: 4px;
+      padding: 16px;
+      color: rgba(192, 216, 255, 0.95);
+      font-family: 'Noto Serif JP', serif;
+      font-size: 16px;
+      resize: none;
+      outline: none;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .vision-input:focus {
+      border-color: rgba(255, 220, 180, 0.5);
+      box-shadow: 0 0 20px rgba(255, 220, 180, 0.15);
+    }
+    
+    .vision-input::placeholder {
+      color: rgba(192, 216, 255, 0.35);
+    }
+    
+    #theme-input {
+      height: 50px;
+    }
+    
+    #vision-input {
+      height: 150px;
+    }
+    
+    /* Icon buttons */
+    .icon-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(10, 20, 40, 0.7);
+      border: 1px solid rgba(255, 220, 180, 0.35);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      color: rgba(255, 220, 180, 0.9);
+      font-size: 24px;
+    }
+    
+    .icon-btn:hover {
+      background: rgba(255, 220, 180, 0.15);
+      border-color: rgba(255, 220, 180, 0.6);
+      box-shadow: 0 0 30px rgba(255, 220, 180, 0.25);
+      transform: scale(1.05);
+    }
+    
+    .icon-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .icon-btn.disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+    
+    /* ③ D: アイコン - 筆と札 (C枠の右下内側に配置) */
+    .submit-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 55px;
+      height: 55px;
+      margin-top: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    .submit-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+      transition: transform 0.3s ease, filter 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .submit-btn:hover img {
+      transform: scale(1.08);
+      box-shadow: 0 0 20px rgba(255, 220, 180, 0.5);
+    }
+    
+    .submit-btn:active img {
+      transform: scale(0.95);
+    }
+    
+    .submit-btn.disabled img {
+      filter: grayscale(80%) brightness(0.5);
+    }
+    
+    .submit-btn::before {
+      display: none;
+    }
+    
+    @keyframes glow-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.3); opacity: 0.8; }
+    }
+    
+    /* ④ Message screen */
+    #message-screen {
+      gap: 24px;
+    }
+    
+    .message-panel {
+      width: 100%;
+      max-width: 600px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    
+    .message-title {
+      color: rgba(255, 220, 180, 0.9);
+      font-size: 14px;
+      letter-spacing: 3px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    
+    .message-content {
+      color: rgba(192, 216, 255, 0.9);
+      font-size: 16px;
+      line-height: 1.9;
+      white-space: pre-wrap;
+    }
+    
+    .message-content.typing::after {
+      content: '▊';
+      animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+    
+    /* ⑤ F: アイコン - 箱or本 */
+    .detail-btn {
+      position: relative;
+    }
+    
+    .detail-btn::before {
+      content: '';
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 220, 180, 0.12) 0%, transparent 70%);
+      animation: glow-pulse 2s ease-in-out infinite;
+    }
+    
+    /* ⑥ Detail screen - G: 羊皮紙の背景 */
+    #detail-screen {
+      background-image: url('parchment-bg.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      justify-content: flex-start;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+    
+    /* ⑥ 詳細説明エリア - 画面上部5%から52%まで */
+    .detail-area {
+      position: absolute;
+      top: 5%;
+      left: 5%;
+      right: 5%;
+      height: 47%;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    
+    .detail-title {
+      color: rgba(60, 35, 10, 0.95);
+      font-size: 16px;
+      letter-spacing: 3px;
+      margin-bottom: 20px;
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4);
+    }
+    
+    .detail-content {
+      color: rgba(50, 30, 10, 0.95);
+      font-size: 15px;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      text-shadow: 0 1px 1px rgba(255, 255, 255, 0.3);
+    }
+    
+    /* ⑦ チャットエリア - 画面下部に巻物 */
+    .chat-scroll-area {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 45%;
+      background-image: url('scroll-bg.png');
+      background-size: 100% 100%;
+      background-position: center center;
+      background-repeat: no-repeat;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      /* 画像分析による正確な紙部分の余白:
+         上: 16.3%, 右: 11.3%, 下: 13.8%, 左: 14.4% */
+      padding: 16.3% 11.3% 13.8% 14.4%;
+      margin: 0;
+      box-sizing: border-box;
+    }
+    
+    .scroll-input-area {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    
+    /* 巻物内のチャットメッセージエリア */
+    .scroll-chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 5px 10px;
+      margin-bottom: 8px;
+    }
+    
+    .scroll-chat-message {
+      padding: 8px 12px;
+      border-radius: 6px;
+      max-width: 85%;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    
+    .scroll-chat-message.user {
+      background: rgba(80, 50, 20, 0.15);
+      color: rgba(60, 35, 10, 0.95);
+      align-self: flex-end;
+      border: 1px solid rgba(139, 90, 43, 0.3);
+    }
+    
+    .scroll-chat-message.assistant {
+      background: rgba(255, 250, 240, 0.4);
+      color: rgba(50, 30, 10, 0.95);
+      align-self: flex-start;
+      border: 1px solid rgba(139, 90, 43, 0.25);
+    }
+    
+    .scroll-input-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      margin-top: auto;
+    }
+    
+    .scroll-chat-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(100, 60, 20, 0.2);
+      padding: 8px 4px;
+      color: rgba(50, 30, 10, 0.95);
+      font-family: 'Noto Serif JP', serif;
+      font-size: 14px;
+      outline: none;
+    }
+    
+    .scroll-chat-input:focus {
+      border-bottom-color: rgba(100, 60, 20, 0.4);
+    }
+    
+    .scroll-chat-input::placeholder {
+      color: rgba(100, 70, 40, 0.5);
+    }
+    
+    .scroll-send-btn {
+      width: 36px;
+      height: 36px;
+      background: rgba(80, 50, 20, 0.8);
+      border: 1px solid rgba(139, 90, 43, 0.6);
+      border-radius: 50%;
+      color: rgba(255, 240, 220, 0.95);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      flex-shrink: 0;
+    }
+    
+    .scroll-send-btn:hover {
+      background: rgba(100, 60, 25, 0.9);
+      box-shadow: 0 0 15px rgba(139, 90, 43, 0.5);
+    }
+    
+    /* Detail area scrollbar */
+    .detail-area::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .detail-area::-webkit-scrollbar-track {
+      background: rgba(139, 90, 43, 0.1);
+      border-radius: 4px;
+    }
+    
+    .detail-area::-webkit-scrollbar-thumb {
+      background: rgba(139, 90, 43, 0.4);
+      border-radius: 4px;
+    }
+    
+    .detail-area::-webkit-scrollbar-thumb:hover {
+      background: rgba(139, 90, 43, 0.6);
+    }
+    
+    /* Scroll chat messages scrollbar */
+    .scroll-chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .scroll-chat-messages::-webkit-scrollbar-track {
+      background: rgba(139, 90, 43, 0.08);
+      border-radius: 3px;
+    }
+    
+    .scroll-chat-messages::-webkit-scrollbar-thumb {
+      background: rgba(139, 90, 43, 0.3);
+      border-radius: 3px;
+    }
+    
+    .scroll-chat-messages::-webkit-scrollbar-thumb:hover {
+      background: rgba(139, 90, 43, 0.5);
+    }
+    
+    /* ⑨ Help screen - J: 半分のノート(洋書) */
+    /* ⑨ Help screen - 開いた洋書の背景 */
+    #help-screen {
+      background-color: rgba(20, 15, 10, 0.9);
+      background-image: url('book-bg.png');
+      background-size: auto 100%;
+      background-position: right center;
+      background-repeat: no-repeat;
+      background-attachment: scroll;
+      padding: 0;
+      justify-content: flex-start;
+      align-items: flex-end;
+      overflow: hidden;
+    }
+    
+    .notebook-panel {
+      background: transparent;
+      border: none;
+      width: 70%;
+      height: 100%;
+      overflow-y: auto;
+      position: relative;
+      /* 紙部分に合わせた余白（上下10%内側） */
+      padding: 10% 3% 10% 3%;
+      box-sizing: border-box;
+      margin-right: 2%;
+    }
+    
+    .notebook-panel::before {
+      display: none;
+    }
+    
+    .help-content {
+      color: rgba(70, 45, 15, 0.95);
+      font-size: 14px;
+      line-height: 1.7;
+      padding: 10px;
+      text-shadow: 0 1px 1px rgba(255, 255, 255, 0.2);
+      /* 横書きを明示 */
+      writing-mode: horizontal-tb;
+      text-align: left;
+    }
+    
+    .help-content h3 {
+      color: rgba(90, 55, 15, 0.95);
+      font-size: 15px;
+      margin: 14px 0 8px 0;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+    
+    .help-content p {
+      margin-bottom: 10px;
+      text-align: left;
+    }
+    
+    /* Help screen scrollbar */
+    .notebook-panel::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .notebook-panel::-webkit-scrollbar-track {
+      background: rgba(139, 90, 43, 0.1);
+      border-radius: 3px;
+    }
+    
+    .notebook-panel::-webkit-scrollbar-thumb {
+      background: rgba(139, 90, 43, 0.3);
+      border-radius: 3px;
+    }
+    
+    /* ⑧ I: アイコン - ろうそくの火 */
+    .candle-btn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      z-index: 100;
+      width: 50px;
+      height: 50px;
+      font-size: 20px;
+    }
+    
+    .candle-btn::before {
+      display: none;
+    }
+    
+    .candle-flame {
+      position: absolute;
+      top: -8px;
+      width: 8px;
+      height: 12px;
+      background: radial-gradient(ellipse at bottom, rgba(255, 200, 100, 0.95), rgba(255, 150, 50, 0.7), transparent);
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      animation: flicker 0.5s ease-in-out infinite alternate;
+    }
+    
+    @keyframes flicker {
+      0% { transform: scale(1) rotate(-3deg); opacity: 0.85; }
+      100% { transform: scale(1.15) rotate(3deg); opacity: 1; }
+    }
+    
+    /* Back button */
+    .back-btn {
+      position: fixed;
+      top: 30px;
+      left: 30px;
+      z-index: 100;
+      width: 44px;
+      height: 44px;
+      font-size: 18px;
+    }
+    
+    /* Navigation buttons row */
+    .nav-buttons {
+      display: flex;
+      gap: 16px;
+      margin-top: 20px;
+    }
+    
+    /* Loading indicator */
+    .loading {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .loading-dot {
+      width: 8px;
+      height: 8px;
+      background: rgba(255, 220, 180, 0.7);
+      border-radius: 50%;
+      animation: loading-bounce 1.4s ease-in-out infinite;
+    }
+    
+    .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes loading-bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+    
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: rgba(192, 216, 255, 0.25);
+      border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(192, 216, 255, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <!-- A: 背景 - 神聖な森/神社 -->
+  <div id="bg-image"></div>
+  <canvas id="canvas"></canvas>
+  <div id="transition-overlay" class="transition-overlay"></div>
+  
+  <div id="ui-layer">
+    <!-- Start Screen - Empty, just water interaction -->
+    <div id="start-screen" class="screen active">
+    </div>
+    
+    <!-- Input Screen: ① テーマ ② ヴィジョン ③ 送信アイコン -->
+    <div id="input-screen" class="screen">
+      <!-- B: テーブル - 透明な枠 (テーマ入力) -->
+      <div id="theme-container" class="input-container glass-panel">
+        <label class="input-label">THEME ─ ヴィジョンのテーマ</label>
+        <input type="text" id="theme-input" class="vision-input" placeholder="例：将来の仕事について">
+      </div>
+      
+      <!-- C: テーブル - 透明な枠 (ヴィジョン入力) -->
+      <div id="vision-container" class="input-container glass-panel">
+        <label class="input-label">VISION ─ あなたが見たもの</label>
+        <textarea id="vision-input" class="vision-input" placeholder="瞑想中に見えた映像、感じたこと、浮かんだ言葉を自由に書いてください..."></textarea>
+        
+        <!-- ③ D: アイコン - 筆と札 (右下に配置) -->
+        <button id="submit-btn" class="icon-btn submit-btn disabled" title="解釈を受け取る">
+          <img src="brush-icon.png" alt="送信">
+        </button>
+      </div>
+    </div>
+    
+    <!-- Message Screen: ④ メッセージ ⑤ 詳細アイコン -->
+    <div id="message-screen" class="screen">
+      <!-- E: テーブル - 透明な枠 -->
+      <div class="message-panel glass-panel">
+        <h2 class="message-title">✧ MESSAGE ✧</h2>
+        <div id="message-content" class="message-content"></div>
+      </div>
+      
+      <div class="nav-buttons">
+        <!-- ⑤ F: アイコン - 箱or本 -->
+        <button id="detail-btn" class="icon-btn detail-btn" title="詳しい説明を見る">
+          📖
+        </button>
+      </div>
+    </div>
+    
+    <!-- Detail Screen: ⑥ 詳しい説明 + ⑦ チャットへのリンク -->
+    <!-- G: 背景 - 羊皮紙, H: テーブル - 巻物 -->
+    <div id="detail-screen" class="screen">
+      <!-- ⑥ 詳細説明エリア (5%〜66%) -->
+      <div class="detail-area">
+        <h2 class="detail-title">✦ 詳細な解釈 ✦</h2>
+        <div id="detail-content" class="detail-content"></div>
+      </div>
+      
+      <!-- ⑦ チャットエリア - 巻物 -->
+      <div class="chat-scroll-area">
+        <div class="scroll-input-area">
+          <div id="scroll-chat-messages" class="scroll-chat-messages"></div>
+          <div class="scroll-input-row">
+            <input type="text" id="scroll-chat-input" class="scroll-chat-input" placeholder="さらに深く相談する...">
+            <button id="scroll-send-btn" class="scroll-send-btn" title="送信">➤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Help Screen: ⑨ ヘルプ/ヴィジョンの見方 -->
+    <!-- J: 背景 - 開いた洋書 -->
+    <div id="help-screen" class="screen">
+      <div class="notebook-panel">
+        <div class="help-content">
+          <h3>✧ 深淵の鏡について ✧</h3>
+          <p>このアプリは、あなたの瞑想体験を神秘的な知恵を通じて解釈するためのツールです。</p>
+          
+          <h3>✧ 使い方 ✧</h3>
+          <p>1. 静かな場所で心を落ち着け、瞑想を行います</p>
+          <p>2. 瞑想中に見えたヴィジョン、感じた感覚、浮かんだ言葉を思い出します</p>
+          <p>3. テーマ欄に、何について知りたかったかを入力します</p>
+          <p>4. ヴィジョン欄に、見たものを自由に記述します</p>
+          <p>5. ✦ボタンをタップして、解釈を受け取ります</p>
+          
+          <h3>✧ ヴィジョンの見方 ✧</h3>
+          <p>ヴィジョンは直接的な答えではなく、象徴的なメッセージです。</p>
+          <p>水は感情、火は情熱や変容、光は気づきや希望を表すことが多いです。</p>
+          <p>色、形、動き、温度、音など、すべての感覚が意味を持ちます。</p>
+          
+          <h3>✧ より深い体験のために ✧</h3>
+          <p>判断を手放し、見えるものをそのまま受け入れてください。</p>
+          <p>解釈は一つの視点です。あなた自身の直感も大切にしてください。</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Fixed buttons -->
+    <button id="back-btn" class="icon-btn back-btn" style="display: none;" title="戻る">
+      ←
+    </button>
+    
+    <!-- ⑧ I: アイコン - ろうそくの火 -->
+    <button id="candle-btn" class="icon-btn candle-btn" title="ヘルプ">
+      🕯
+      <div class="candle-flame"></div>
+    </button>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  
+  <script>
+    // ========== THREE.JS WATER SURFACE ==========
+    const COLORS = {
+      base: 0x050515,
+      surface: 0x101830,
+      ripple: 0xc0d8ff,
+      glow: 0xffffff
+    };
+
+    const vertexShader = `
+      uniform float uTime;
+      uniform vec2 uRipples[16];
+      uniform float uRippleTimes[16];
+      uniform int uRippleCount;
+      
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vWorldPosition;
+      varying float vElevation;
+      
+      vec4 permute(vec4 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+      vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+      
+      float snoise(vec3 v) {
+        const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+        const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+        vec3 i = floor(v + dot(v, C.yyy));
+        vec3 x0 = v - i + dot(i, C.xxx);
+        vec3 g = step(x0.yzx, x0.xyz);
+        vec3 l = 1.0 - g;
+        vec3 i1 = min(g.xyz, l.zxy);
+        vec3 i2 = max(g.xyz, l.zxy);
+        vec3 x1 = x0 - i1 + C.xxx;
+        vec3 x2 = x0 - i2 + C.yyy;
+        vec3 x3 = x0 - D.yyy;
+        i = mod(i, 289.0);
+        vec4 p = permute(permute(permute(
+                  i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+        float n_ = 1.0/7.0;
+        vec3 ns = n_ * D.wyz - D.xzx;
+        vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+        vec4 x_ = floor(j * ns.z);
+        vec4 y_ = floor(j - 7.0 * x_);
+        vec4 x = x_ *ns.x + ns.yyyy;
+        vec4 y = y_ *ns.x + ns.yyyy;
+        vec4 h = 1.0 - abs(x) - abs(y);
+        vec4 b0 = vec4(x.xy, y.xy);
+        vec4 b1 = vec4(x.zw, y.zw);
+        vec4 s0 = floor(b0)*2.0 + 1.0;
+        vec4 s1 = floor(b1)*2.0 + 1.0;
+        vec4 sh = -step(h, vec4(0.0));
+        vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+        vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+        vec3 p0 = vec3(a0.xy, h.x);
+        vec3 p1 = vec3(a0.zw, h.y);
+        vec3 p2 = vec3(a1.xy, h.z);
+        vec3 p3 = vec3(a1.zw, h.w);
+        vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+        p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+        vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+        m = m * m;
+        return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+      }
+      
+      float calculateRipple(vec2 center, float rippleTime, vec2 pos) {
+        float dist = distance(pos, center);
+        float rippleSpeed = 2.5;
+        float rippleWidth = 0.12;
+        float maxRadius = 4.0;
+        float currentRadius = rippleTime * rippleSpeed;
+        if (currentRadius > maxRadius) return 0.0;
+        float ringDist = abs(dist - currentRadius);
+        float amplitude = exp(-ringDist / rippleWidth);
+        float decay = 1.0 - (currentRadius / maxRadius);
+        decay = decay * decay * decay;
+        float wave = sin(dist * 12.0 - rippleTime * 10.0);
+        return amplitude * decay * wave * 0.12;
+      }
+      
+      void main() {
+        vUv = uv;
+        vec3 pos = position;
+        float noise1 = snoise(vec3(pos.x * 0.25, pos.y * 0.25, uTime * 0.04)) * 0.04;
+        float noise2 = snoise(vec3(pos.x * 0.5, pos.y * 0.5, uTime * 0.06 + 100.0)) * 0.02;
+        float noise3 = snoise(vec3(pos.x * 0.8, pos.y * 0.8, uTime * 0.08 + 200.0)) * 0.01;
+        float elevation = noise1 + noise2 + noise3;
+        for (int i = 0; i < 16; i++) {
+          if (i >= uRippleCount) break;
+          float rippleTime = uTime - uRippleTimes[i];
+          if (rippleTime > 0.0 && rippleTime < 4.0) {
+            elevation += calculateRipple(uRipples[i], rippleTime, pos.xy);
+          }
+        }
+        pos.z += elevation;
+        vElevation = elevation;
+        float eps = 0.05;
+        float e1 = snoise(vec3((pos.x + eps) * 0.25, pos.y * 0.25, uTime * 0.04)) * 0.04;
+        float e2 = snoise(vec3(pos.x * 0.25, (pos.y + eps) * 0.25, uTime * 0.04)) * 0.04;
+        vec3 tangentX = normalize(vec3(eps, 0.0, e1 - noise1));
+        vec3 tangentY = normalize(vec3(0.0, eps, e2 - noise1));
+        vNormal = normalize(cross(tangentY, tangentX));
+        vWorldPosition = (modelMatrix * vec4(pos, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `;
+
+    const fragmentShader = `
+      uniform float uTime;
+      uniform vec3 uBaseColor;
+      uniform vec3 uSurfaceColor;
+      uniform vec3 uRippleColor;
+      uniform vec3 uCameraPosition;
+      
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vWorldPosition;
+      varying float vElevation;
+      
+      void main() {
+        vec3 viewDir = normalize(uCameraPosition - vWorldPosition);
+        vec3 normal = normalize(vNormal);
+        
+        float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0);
+        
+        vec3 lightDir1 = normalize(vec3(0.0, 0.5, 1.0));
+        vec3 halfDir1 = normalize(lightDir1 + viewDir);
+        float spec1 = pow(max(dot(normal, halfDir1), 0.0), 256.0);
+        
+        vec3 lightDir2 = normalize(vec3(-0.2, 0.3, 1.0));
+        vec3 halfDir2 = normalize(lightDir2 + viewDir);
+        float spec2 = pow(max(dot(normal, halfDir2), 0.0), 64.0) * 0.3;
+        
+        float rippleIntensity = smoothstep(0.0, 0.05, abs(vElevation));
+        
+        vec3 color = uBaseColor * 0.3;
+        color += uRippleColor * fresnel * 0.4;
+        color += vec3(1.0) * spec1 * 1.2;
+        color += uRippleColor * spec2;
+        color += uRippleColor * rippleIntensity * 0.5;
+        
+        float alpha = 0.15 + fresnel * 0.35 + rippleIntensity * 0.25 + (spec1 + spec2) * 0.4;
+        alpha = clamp(alpha, 0.0, 0.7);
+        
+        gl_FragColor = vec4(color, alpha);
+      }
+    `;
+
+    // Three.js setup
+    const canvas = document.getElementById('canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 6, 0);
+    camera.lookAt(0, 0, 0);
+
+    function getPlaneSize() {
+      const fov = camera.fov * (Math.PI / 180);
+      const distance = camera.position.y;
+      const height = 2 * Math.tan(fov / 2) * distance * 1.8;
+      const width = height * (window.innerWidth / window.innerHeight);
+      return { width, height };
+    }
+
+    const planeSize = getPlaneSize();
+    const geometry = new THREE.PlaneGeometry(planeSize.width, planeSize.height, 200, 200);
+
+    const maxRipples = 16;
+    const uniforms = {
+      uTime: { value: 0 },
+      uBaseColor: { value: new THREE.Color(COLORS.base) },
+      uSurfaceColor: { value: new THREE.Color(COLORS.surface) },
+      uRippleColor: { value: new THREE.Color(COLORS.ripple) },
+      uCameraPosition: { value: camera.position },
+      uRipples: { value: [] },
+      uRippleTimes: { value: [] },
+      uRippleCount: { value: 0 }
+    };
+
+    for (let i = 0; i < maxRipples; i++) {
+      uniforms.uRipples.value.push(new THREE.Vector2(0, 0));
+      uniforms.uRippleTimes.value.push(-10);
+    }
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader, fragmentShader, uniforms,
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2;
+    scene.add(mesh);
+
+    const ripples = [];
+
+    function addRipple(x, y, time) {
+      ripples.push({ x, y, time });
+      if (ripples.length > maxRipples) ripples.shift();
+    }
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function handleWaterInteraction(clientX, clientY) {
+      mouse.x = (clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(mesh);
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+        addRipple(point.x, point.z, uniforms.uTime.value);
+      }
+    }
+
+    let waterInteractionEnabled = true;
+    let isPointerDown = false;
+    let startScreenActive = true;
+    let transitionTriggered = false;
+    
+    const transitionOverlay = document.getElementById('transition-overlay');
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (!waterInteractionEnabled) return;
+      isPointerDown = true;
+      handleWaterInteraction(e.clientX, e.clientY);
+      
+      // Trigger transition on first touch during start screen
+      if (startScreenActive && !transitionTriggered) {
+        triggerStartTransition();
+      }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!waterInteractionEnabled || !isPointerDown) return;
+      handleWaterInteraction(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener('pointerup', () => isPointerDown = false);
+    canvas.addEventListener('pointerleave', () => isPointerDown = false);
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (!waterInteractionEnabled) return;
+      e.preventDefault();
+      for (let touch of e.touches) handleWaterInteraction(touch.clientX, touch.clientY);
+      
+      // Trigger transition on first touch during start screen
+      if (startScreenActive && !transitionTriggered) {
+        triggerStartTransition();
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (!waterInteractionEnabled) return;
+      e.preventDefault();
+      for (let touch of e.touches) handleWaterInteraction(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      const newSize = getPlaneSize();
+      mesh.geometry.dispose();
+      mesh.geometry = new THREE.PlaneGeometry(newSize.width, newSize.height, 200, 200);
+    });
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const time = clock.getElapsedTime();
+      uniforms.uTime.value = time;
+      const activeRipples = ripples.filter(r => time - r.time < 4.0);
+      ripples.length = 0;
+      ripples.push(...activeRipples);
+      uniforms.uRippleCount.value = activeRipples.length;
+      for (let i = 0; i < maxRipples; i++) {
+        if (i < activeRipples.length) {
+          uniforms.uRipples.value[i].set(activeRipples[i].x, activeRipples[i].y);
+          uniforms.uRippleTimes.value[i] = activeRipples[i].time;
+        } else {
+          uniforms.uRippleTimes.value[i] = -10;
+        }
+      }
+      renderer.render(scene, camera);
+    }
+
+    animate();
+    
+    // ========== START SCREEN TRANSITION ==========
+    const themeContainer = document.getElementById('theme-container');
+    const visionContainer = document.getElementById('vision-container');
+    
+    function triggerStartTransition() {
+      transitionTriggered = true;
+      
+      // Phase 1: Let ripples play out for a while (2.5s)
+      setTimeout(() => {
+        transitionOverlay.classList.add('active');
+      }, 2500);
+      
+      // Phase 2: Switch to input screen and show Box B (theme) (4s total)
+      setTimeout(() => {
+        startScreenActive = false;
+        showScreen('input');
+        
+        // Show theme container (Box B) with animation
+        setTimeout(() => {
+          themeContainer.classList.add('visible');
+          transitionOverlay.classList.remove('active');
+        }, 400);
+      }, 4000);
+    }
+    
+    // Show vision container (Box C) when theme is entered
+    function showVisionContainer() {
+      if (!visionContainer.classList.contains('visible')) {
+        visionContainer.classList.add('visible');
+      }
+    }
+
+    // ========== UI NAVIGATION ==========
+    const screens = {
+      start: document.getElementById('start-screen'),
+      input: document.getElementById('input-screen'),
+      message: document.getElementById('message-screen'),
+      detail: document.getElementById('detail-screen'),
+      help: document.getElementById('help-screen')
+    };
+
+    const backBtn = document.getElementById('back-btn');
+    const candleBtn = document.getElementById('candle-btn');
+    const themeInput = document.getElementById('theme-input');
+    const visionInput = document.getElementById('vision-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const messageContent = document.getElementById('message-content');
+    const detailBtn = document.getElementById('detail-btn');
+    const detailContent = document.getElementById('detail-content');
+    const scrollChatInput = document.getElementById('scroll-chat-input');
+    const scrollSendBtn = document.getElementById('scroll-send-btn');
+
+    let currentScreen = 'start';
+    let screenHistory = [];
+    let visionData = { theme: '', vision: '', message: '', detail: '' };
+
+    function showScreen(screenName, addToHistory = true) {
+      if (addToHistory && currentScreen !== screenName) {
+        screenHistory.push(currentScreen);
+      }
+      
+      Object.values(screens).forEach(s => s.classList.remove('active'));
+      screens[screenName].classList.add('active');
+      currentScreen = screenName;
+      
+      // Back button: hide on start and input
+      backBtn.style.display = (screenName === 'start' || screenName === 'input') ? 'none' : 'block';
+      
+      // Candle button: show on all screens except detail (parchment background)
+      candleBtn.style.display = (screenName === 'detail') ? 'none' : 'block';
+      
+      // Water interaction enabled on start and input screens
+      waterInteractionEnabled = (screenName === 'start' || screenName === 'input');
+    }
+
+    function goBack() {
+      if (currentScreen === 'help') {
+        showScreen(screenHistory[screenHistory.length - 1] || 'start', false);
+        return;
+      }
+      if (screenHistory.length > 0) {
+        const prevScreen = screenHistory.pop();
+        showScreen(prevScreen, false);
+      }
+    }
+
+    // Input validation
+    function validateInput() {
+      const hasTheme = themeInput.value.trim().length > 0;
+      const hasVision = visionInput.value.trim().length > 0;
+      submitBtn.classList.toggle('disabled', !(hasTheme && hasVision));
+    }
+
+    themeInput.addEventListener('input', () => {
+      validateInput();
+      // Show vision container (Box C) when user starts typing in theme
+      if (themeInput.value.trim().length > 0) {
+        showVisionContainer();
+      }
+    });
+    
+    // Also show vision container on focus/enter in theme input
+    themeInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && themeInput.value.trim().length > 0) {
+        showVisionContainer();
+        visionInput.focus();
+      }
+    });
+    
+    visionInput.addEventListener('input', validateInput);
+
+    // ③ Event: Submit vision
+    submitBtn.addEventListener('click', async () => {
+      if (submitBtn.classList.contains('disabled')) return;
+      
+      visionData.theme = themeInput.value.trim();
+      visionData.vision = visionInput.value.trim();
+      
+      showScreen('message');
+      
+      await generateMessage();
+    });
+
+    // ④ Generate mystical message
+    async function generateMessage() {
+      messageContent.innerHTML = '<div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>';
+      
+      await new Promise(r => setTimeout(r, 1500));
+      
+      const messages = generateMysticalMessage(visionData.theme, visionData.vision);
+      visionData.message = messages.short;
+      visionData.detail = messages.detail;
+      
+      messageContent.textContent = '';
+      messageContent.classList.add('typing');
+      
+      for (let char of visionData.message) {
+        messageContent.textContent += char;
+        await new Promise(r => setTimeout(r, 30));
+      }
+      
+      messageContent.classList.remove('typing');
+    }
+
+    function generateMysticalMessage(theme, vision) {
+      const keywords = {
+        water: '感情の流れ、浄化、潜在意識',
+        fire: '情熱、変容、創造的エネルギー',
+        light: '気づき、希望、真実への道',
+        dark: '内なる影、未知の可能性、深い知恵',
+        tree: '成長、根付き、生命力',
+        bird: '自由、視野の拡大、霊的メッセージ',
+        moon: '直感、周期、女性性のエネルギー',
+        sun: '意識、活力、男性性のエネルギー',
+        door: '新しい機会、選択、変化の入り口',
+        path: '人生の旅、決断、目的への道'
+      };
+      
+      let foundSymbols = [];
+      const visionLower = vision.toLowerCase();
+      
+      for (let [key, meaning] of Object.entries(keywords)) {
+        const jpKey = key === 'water' ? '水' : key === 'fire' ? '火' : key === 'light' ? '光' : key === 'dark' ? '闇' : key === 'tree' ? '木' : key === 'bird' ? '鳥' : key === 'moon' ? '月' : key === 'sun' ? '太陽' : key === 'door' ? '扉' : key === 'path' ? '道' : '';
+        if (visionLower.includes(key) || vision.includes(jpKey)) {
+          foundSymbols.push({ key, meaning });
+        }
+      }
+      
+      const shortMessage = `あなたのヴィジョンは「${theme}」について深い洞察を示しています。
+
+${foundSymbols.length > 0 
+  ? `見えた象徴には${foundSymbols.map(s => s.meaning).join('、')}の意味があります。`
+  : '静寂の中に、答えはすでに存在しています。'}
+
+内なる声に耳を傾け、直感を信じてください。
+水面に映る月のように、真実は常にそこにあります。`;
+
+      const detailMessage = `【${theme}についてのヴィジョン解釈】
+
+あなたが見たヴィジョン:
+「${vision}」
+
+━━━━━━━━━━━━━━━━━━━
+
+◆ 象徴の解読
+
+${foundSymbols.length > 0 
+  ? foundSymbols.map(s => `・${s.key}: ${s.meaning}`).join('\n')
+  : '・静寂と空白: 新しい始まり、可能性の種'}
+
+◆ カバラ的解釈
+
+このヴィジョンは、生命の木における「ティファレト（美・調和）」のセフィラと共鳴しています。
+それは、あなたの内なる太陽―真の自己―が輝き始めていることを示しています。
+
+◆ タロット的対応
+
+このヴィジョンは「星」のアルカナに対応します。
+希望、インスピレーション、そして宇宙との繋がりを象徴しています。
+
+◆ 実践的アドバイス
+
+1. 毎朝、このヴィジョンを思い出し、その感覚と繋がってください
+2. 直感が示す方向に小さな一歩を踏み出してください
+3. 結果への執着を手放し、プロセスを信頼してください
+
+━━━━━━━━━━━━━━━━━━━
+
+深淵は語りました。あなたの道が光に照らされますように。`;
+
+      return { short: shortMessage, detail: detailMessage };
+    }
+
+    // ⑦ Scroll chat - messages displayed inside scroll
+    const scrollChatMessages = document.getElementById('scroll-chat-messages');
+    
+    function addScrollMessage(role, content) {
+      const msg = document.createElement('div');
+      msg.className = `scroll-chat-message ${role}`;
+      msg.textContent = content;
+      scrollChatMessages.appendChild(msg);
+      scrollChatMessages.scrollTop = scrollChatMessages.scrollHeight;
+    }
+    
+    async function sendScrollChat() {
+      const text = scrollChatInput.value.trim();
+      if (!text) return;
+      
+      // Add user message to scroll
+      addScrollMessage('user', text);
+      
+      scrollChatInput.value = '';
+      scrollChatInput.placeholder = '考え中...';
+      scrollSendBtn.disabled = true;
+      
+      await new Promise(r => setTimeout(r, 1500));
+      
+      const responses = [
+        'その疑問は深い洞察に繋がっています。ヴィジョンの中で感じた感情を思い出してください。',
+        'カバラの教えでは、すべての質問はすでに答えを内包しています。',
+        'あなたの直感は正しい方向を指しています。恐れずに進んでください。',
+        'このシンボルは変容の過程を表しています。古いものを手放す準備をしてください。',
+        '深淵があなたに語りかけています。静寂の中で、その声を聴いてください。',
+        '水は常に低きに流れ、やがて海に至ります。あなたの道も同じです。',
+        'このヴィジョンは内なる統合を示しています。対立するものを受け入れてください。'
+      ];
+      
+      const response = responses[Math.floor(Math.random() * responses.length)];
+      
+      // Add assistant message to scroll
+      addScrollMessage('assistant', response);
+      
+      scrollChatInput.placeholder = 'さらに深く相談する...';
+      scrollSendBtn.disabled = false;
+    }
+
+    // ⑤ Event: Detail button
+    detailBtn.addEventListener('click', () => {
+      detailContent.textContent = visionData.detail;
+      // Clear scroll chat (no initial message)
+      scrollChatMessages.innerHTML = '';
+      showScreen('detail');
+    });
+    
+    if (scrollSendBtn) {
+      scrollSendBtn.addEventListener('click', sendScrollChat);
+    }
+    if (scrollChatInput) {
+      scrollChatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendScrollChat();
+      });
+    }
+
+    // Event: Back button
+    backBtn.addEventListener('click', goBack);
+
+    // ⑧ Event: Candle (Help) button
+    candleBtn.addEventListener('click', () => {
+      showScreen('help');
+    });
+  </script>
+</body>
+</html>
